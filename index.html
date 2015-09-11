@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-dark.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>Nomopojo by timbaileyjones</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>Nomopojo</h1>
+          <h2>Generic Java CRUD servlet to provide MongoDB REST services that does NOT use POJOs</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/timbaileyjones/nomopojo/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/timbaileyjones/nomopojo/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/timbaileyjones/nomopojo" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <h1>
+<a id="nomopojo" class="anchor" href="#nomopojo" aria-hidden="true"><span class="octicon octicon-link"></span></a>nomopojo</h1>
+
+<p>nomopojo is a set of generic Java CRUD servlets to provide REST services that does NOT use POJOs.</p>
+
+<h4>
+<a id="warning" class="anchor" href="#warning" aria-hidden="true"><span class="octicon octicon-link"></span></a>WARNING:</h4>
+
+<ul>
+<li>STAND BACK!  This is very early pre-pre-alpha software! (at least until I remove this warning!)</li>
+</ul>
+
+<h4>
+<a id="the-name" class="anchor" href="#the-name" aria-hidden="true"><span class="octicon octicon-link"></span></a>The name</h4>
+
+<p>nomopojo stands for "No More POJOs".  In the Java/J2EE world, there are ton of ways
+to set up REST services as Servlets, but almost all of them require you to declare your
+object layers as Plain Old Java Objects (also known as DTOs, VO, Beans, what have you).</p>
+
+<h4>
+<a id="background-on-pojos" class="anchor" href="#background-on-pojos" aria-hidden="true"><span class="octicon octicon-link"></span></a>Background on POJOs</h4>
+
+<p>The POJO-everywhere mentality made a certain amount of sense back in the RDBMS days when database
+schemas were changed only with new releases of software.  The ease at which POJOs can be generated from
+JDBC drivers is well-established, and a whole sub-speciality of mappers has arisen: JPA, Hibernate,
+Spring Framework, JAXB, Jackson, Jersey, etc.  Part of the accepted paradigm is that these POJO channge
+when the database changes, and this all works well enough within one organizaations' applications.</p>
+
+<h4>
+<a id="json-is-the-new-way-to-go" class="anchor" href="#json-is-the-new-way-to-go" aria-hidden="true"><span class="octicon octicon-link"></span></a>JSON is the new way to go.</h4>
+
+<p>Now, flexible JSON payloads dominate both client-to-server and even server-to-server interactions
+across organizational/corporate boundaries.  The schema-less property of JSON objects lets any
+party add data elements easily, without having to coordinate these changes with other parties as
+tightly as with other formats.   It is important that when your company's business partners add
+new data attributes that your company can at least NOT LOSE THEM, but this is precisely what
+happens when the majority of J2EE-based REST frameworks try to map an incoming JSON object to a POJO.
+Unmapped attributes simply get DROPPED.  Put another way, the compile-time definition of a POJO
+class becomes a destructive filter on all of your incoming JSON payloads.  And of course, modifying
+your POJOs requires code modifications, repackaging, retesting, and re-releasing.  </p>
+
+<h4>
+<a id="json-is-the-anti-pojo" class="anchor" href="#json-is-the-anti-pojo" aria-hidden="true"><span class="octicon octicon-link"></span></a>JSON is the anti-POJO</h4>
+
+<p>In environments where JSON is both on the client and the database, it makes ZERO sense to put POJOs in the middle.
+The POJO pattern effectively throws every EVERY benefit using flexible JSON formats in the first place.</p>
+
+<h4>
+<a id="why-i-am-developing-nomopojo" class="anchor" href="#why-i-am-developing-nomopojo" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why I am developing nomopojo</h4>
+
+<p>I spent some time looking for a generic REST servlet for MongoDB that doesn't involve POJOs and is
+implemented as a normal Java Servlet.  The closest thing I found was RestHeart [1].  I was able to immediately use it in developing my Angular JS frontend, writing to a MongoDB database via RestHeart.  Unfortunately, I am required 
+to deploy my work to Weblogic 12c (not my preference), which is a Serlet 3.0 container. RestHeart 
+is written directly to the Undertow.io server [2], not the Servlet specification.  So, as great as 
+Undertow.io is, I cannot use it for my day job.</p>
+
+<h4>
+<a id="conclusion" class="anchor" href="#conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclusion</h4>
+
+<p>This is my attempt to fill this gap: providing a generic REST servlet for MongoDB via the Servlet 3.0 API.</p>
+
+<p>Implementing REST on top of JSON is trivial to do in most programming languges, like Javascript/Node/Express, 
+or Python/Flask/Django, and has been implemented dozens of times.  But Java, even after 20+ years, still 
+lacks the concept of a first-class Java Object literal.   Once you realize that, it is easy to see why so 
+many Java frameworks continue to exhibit the POJO-fetishes.  It then follows that naîve developers who lack 
+experience outside of Java simply cannot conceive of any other way to do it.  </p>
+
+<h4>
+<a id="roadmap" class="anchor" href="#roadmap" aria-hidden="true"><span class="octicon octicon-link"></span></a>Roadmap</h4>
+
+<p>It turns out I implemented a generic read-only REST servlet in Java a few years ago, but using JDBC as an 
+input source.  I hope to add that servlet to nomopojo as well, once my current workload settles down 
+(maybe early 2016).  I am open to expanding nomopojo to other NoSQL-type of backend databases.</p>
+
+<p>[1] <a href="https://github.com/SoftInstigate/restheart">https://github.com/SoftInstigate/restheart</a></p>
+
+<p>[2] <a href="http://undertow.io">http://undertow.io</a></p>
+        </section>
+
+        <footer>
+          Nomopojo is maintained by <a href="https://github.com/timbaileyjones">timbaileyjones</a><br>
+          This page was generated by <a href="https://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>
