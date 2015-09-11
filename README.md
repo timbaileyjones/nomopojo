@@ -1,6 +1,10 @@
 # nomopojo
 nomopojo is a set of generic Java CRUD servlets to provide REST services that does NOT use POJOs.
 
+#### WARNING: 
+
+ * STAND BACK!  This is very early pre-pre-alpha software! (at least until I remove this warning!)
+
 #### The name
 nomopojo stands for "No More POJOs".  In the Java/J2EE world, there are ton of ways
 to set up REST services as Servlets, but almost all of them require you to declare your
