@@ -6,9 +6,12 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -19,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -132,11 +136,26 @@ public class MongoCrudServletTest {
 		}
 		return testdata;
 	}
+
+	public static ServletInputStream createServletInputStream(String str) throws Exception {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		baos.write(str.getBytes());
+
+		final InputStream bais = new ByteArrayInputStream(baos.toByteArray());
+
+		return new ServletInputStream() {
+			@Override
+			public int read() throws IOException {
+				return bais.read();
+			}
+		};
+	}
+
 	@Test
 	public void testChangePartialUpdate() throws Exception {
 		StringWriter sw = new StringWriter();
 		PrintWriter pw = new PrintWriter(sw);
-	
+
 		when(response.getWriter()).thenReturn(pw);
 		when(request.getPathInfo()).thenReturn("/zips/33617");
 		@SuppressWarnings("serial")
@@ -147,14 +166,16 @@ public class MongoCrudServletTest {
 		};
 		when(request.getParameterMap()).thenReturn(parameterMap);
 
+		when(request.getInputStream()).thenReturn(createServletInputStream(" { city:'TEMPLE TERRACE' }"));
+
 		new MongoCrudServlet().doPut(request, response);
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
-		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
 
-
-		BasicDBList json = (BasicDBList) JSON.parse(result);
+		BasicDBObject json = (BasicDBObject)JSON.parse(result);
+		Number matched = (Number)json.get("matched");
+		assertTrue("modified count should be one", matched.longValue() == 1);
 
 	}
 
@@ -182,7 +203,6 @@ public class MongoCrudServletTest {
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
 		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
-
 
 		BasicDBList json = (BasicDBList) JSON.parse(result);
 		assertTrue(String.format("should have gotten %d records, got %d instead", limit, json.size()),

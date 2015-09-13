@@ -1,6 +1,8 @@
 package com.linuxtampa.nomopojo.servlet;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Writer;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,6 +19,7 @@ import org.apache.log4j.Logger;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.json.JsonWriterSettings;
+import org.json.simple.JSONObject;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
@@ -25,6 +28,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.result.UpdateResult;
 
 /**
  * Servlet implementation class MongoCrudServlet
@@ -82,6 +86,8 @@ public class MongoCrudServlet extends HttpServlet {
 						"PathInfo requires at least two path components after " + req.getServletPath());
 			String collectionName = urlComponents[0];
 
+			String id = urlComponents.length > 1 ? urlComponents[1] : null;
+
 			int limit = -1;
 			int skip = -1;
 
@@ -125,6 +131,10 @@ public class MongoCrudServlet extends HttpServlet {
 					f = Filters.eq(field, expression);
 				}
 				filter = (filter == null) ? f : Filters.and(filter, f);
+			}
+			if(id != null)  {
+				Bson idFilter = Filters.eq("_id", id);
+                filter = (filter == null) ? Filters.and(idFilter) : Filters.and(filter, idFilter);
 			}
 
 			MongoCollection<Document> collection = db.getCollection(collectionName);
@@ -179,15 +189,66 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		// TODO implement ADD function
-		
+
 	}
+
 	/**
 	 * @see HttpServlet#doPut(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
-	public void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+	@SuppressWarnings("unchecked")
+	public void doPut(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
 		// TODO implement UPDATE (especially the partial replace)
-		
-	}
+		String pathInfo = req.getPathInfo();
+		int statusCode = 500;
 
+		System.out.println("pathInfo: " + pathInfo);
+		try {
+			response.setHeader("Content-type", "application/json");
+			if (pathInfo == null || pathInfo.length() < 2)
+				throw new ServletException(
+						"PathInfo requires at least two path components after " + req.getServletPath());
+
+			while (pathInfo.startsWith("/"))
+				pathInfo = pathInfo.substring(1);
+
+			String urlComponents[] = pathInfo.split("[/\\?]");
+			System.out.println("urlComponents: " + Arrays.toString(urlComponents));
+			if (urlComponents.length < 1)
+				throw new ServletException(
+						"PathInfo requires at least two path components after " + req.getServletPath());
+			String collectionName = urlComponents[0];
+
+			String id = urlComponents[1];
+			BufferedReader br = new BufferedReader(new InputStreamReader(req.getInputStream()));
+			StringBuilder sb = new StringBuilder();
+			String line = null;
+			while ((line = br.readLine()) != null)
+				sb.append(line);
+
+			Document fieldsToUpdate = Document.parse(sb.toString());
+
+			MongoCollection<Document> collection = db.getCollection(collectionName);
+
+			UpdateResult result = collection.updateOne(Filters.eq("_id", id), new Document("$set", fieldsToUpdate));
+
+			JSONObject jsonResponse = new JSONObject();
+			jsonResponse.put("matched", result.getMatchedCount());
+			jsonResponse.put("modified", result.getModifiedCount());
+			jsonResponse.put("upsertedId", result.getUpsertedId());
+
+			response.getWriter().write(jsonResponse.toJSONString());
+			response.setStatus(200);
+		} catch (Exception ex) {
+			response.setStatus(statusCode);
+			ex.printStackTrace(response.getWriter());
+			// we only want to see server errors (500+). Bad Requests are
+			// 400-499 and are not this servlet's fault
+			if (statusCode >= 500) {
+				System.err.println("Returned Server ERROR " + 500);
+				ex.printStackTrace(System.err);
+			}
+			throw new ServletException("caught " + ex, ex);
+		}
+	}
 }
