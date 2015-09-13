@@ -4,11 +4,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -22,7 +25,8 @@ import org.bson.json.JsonWriterSettings;
 import org.json.simple.JSONObject;
 
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
@@ -38,7 +42,6 @@ public class MongoCrudServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private Logger log = Logger.getLogger(MongoCrudServlet.class);
 
-	private MongoClientURI uri = null;
 	private MongoClient client = null;
 	private MongoDatabase db = null;
 
@@ -51,11 +54,39 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	public MongoCrudServlet() {
 		super();
+		init();
+	}
 
-		uri = new MongoClientURI("mongodb://localhost:27017/nomopojo");
-		client = new MongoClient(uri);
-		db = client.getDatabase(uri.getDatabase());
+	public void init() {
+		if (db == null) {
+			try {
+				List<ServerAddress> serverAddresses = new ArrayList<>();
+				List<MongoCredential> credentials = new ArrayList<>();
+				ServletConfig config = getServletConfig();
+				String host = (config != null) ? config.getInitParameter("host") : "localhost";
+				String port = (config != null) ? config.getInitParameter("port") : "27017";
+				String userName = (config != null) ? config.getInitParameter("username") : null;
+				String password = (config != null) ? config.getInitParameter("password") : null;
+				String database = (config != null) ? config.getInitParameter("database") : "nomopojo";
 
+				if (host == null)
+					host = "localhost";
+				if (port == null)
+					port = "27017";
+
+				serverAddresses.add(new ServerAddress(host, Integer.decode(port)));
+				if (userName != null) {
+					MongoCredential c = MongoCredential.createCredential(userName, database, password.toCharArray());
+					credentials.add(c);
+				}
+
+				client = new MongoClient(serverAddresses, credentials);
+				db = client.getDatabase(database);
+
+			} catch (Exception ex) {
+				ex.printStackTrace(System.err);
+			}
+		}
 	}
 
 	/**
@@ -132,9 +163,9 @@ public class MongoCrudServlet extends HttpServlet {
 				}
 				filter = (filter == null) ? f : Filters.and(filter, f);
 			}
-			if(id != null)  {
+			if (id != null) {
 				Bson idFilter = Filters.eq("_id", id);
-                filter = (filter == null) ? Filters.and(idFilter) : Filters.and(filter, idFilter);
+				filter = (filter == null) ? Filters.and(idFilter) : Filters.and(filter, idFilter);
 			}
 
 			MongoCollection<Document> collection = db.getCollection(collectionName);

@@ -18,10 +18,14 @@ import java.io.StringWriter;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 
 import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -55,6 +59,8 @@ public class MongoCrudServletTest {
 	HttpSession session;
 	@Mock
 	RequestDispatcher rd;
+	
+	ServletConfig servletConfig = getMockServletConfig();
 
 	private MongoClientURI uri = null;
 	private MongoClient client = null;
@@ -64,7 +70,7 @@ public class MongoCrudServletTest {
 	@Before
 	public void setUp() throws Exception {
 		MockitoAnnotations.initMocks(this);
-
+		
 		// connect unit test to local mongo instance
 		uri = new MongoClientURI("mongodb://localhost:27017/nomopojo");
 		client = new MongoClient(uri);
@@ -72,6 +78,39 @@ public class MongoCrudServletTest {
 
 		File testdata = fetchTestData("http://media.mongodb.org/zips.json");
 		loadTestDataIntoMongo(testdata);
+	}
+	
+	private ServletConfig  getMockServletConfig() {
+
+		Hashtable<String, String> configMap = new Hashtable<String, String>();
+		configMap.put("host", "localhost");
+		configMap.put("port", "27017");
+		configMap.put("database", "nomopojo");
+		// configMap.put("username", "");
+		// configMap.put("password", "");
+
+		ServletConfig config = new ServletConfig() {
+			@Override
+			public String getServletName() {
+				return "MongoCrudServlet";
+			}
+			
+			@Override
+			public ServletContext getServletContext() {
+				throw new UnsupportedOperationException("didn't think I needed it");
+			}
+			
+			@Override
+			public Enumeration<String> getInitParameterNames() {
+				return configMap.elements();
+			}
+			
+			@Override
+			public String getInitParameter(String name) {
+				return configMap.get(name);
+			}
+		};
+		return config;
 	}
 
 	private void loadTestDataIntoMongo(File testdata) throws IOException {
