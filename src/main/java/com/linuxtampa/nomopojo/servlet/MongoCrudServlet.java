@@ -54,15 +54,20 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	public MongoCrudServlet() {
 		super();
-		init();
+		
+		
+		try {
+		} catch(Exception ex) {
+			ex.printStackTrace(System.err);
+		}
 	}
 
-	public void init() {
+	@Override
+	public void init(ServletConfig config) {
 		if (db == null) {
 			try {
 				List<ServerAddress> serverAddresses = new ArrayList<>();
 				List<MongoCredential> credentials = new ArrayList<>();
-				ServletConfig config = getServletConfig();
 				String host = (config != null) ? config.getInitParameter("host") : "localhost";
 				String port = (config != null) ? config.getInitParameter("port") : "27017";
 				String userName = (config != null) ? config.getInitParameter("username") : null;
@@ -95,6 +100,7 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	public void doGet(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
 
+		init(null);
 		Map<String, String[]> inMap = new HashMap<String, String[]>(req.getParameterMap());
 		String pathInfo = req.getPathInfo();
 		int statusCode = 500;
@@ -220,6 +226,7 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		// TODO implement ADD function
+		init(null);
 
 	}
 
@@ -229,7 +236,7 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	@SuppressWarnings("unchecked")
 	public void doPut(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
-		// TODO implement UPDATE (especially the partial replace)
+		init(null);
 		String pathInfo = req.getPathInfo();
 		int statusCode = 500;
 
