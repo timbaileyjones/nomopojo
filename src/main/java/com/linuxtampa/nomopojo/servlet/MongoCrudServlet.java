@@ -24,6 +24,7 @@ import org.bson.conversions.Bson;
 import org.bson.json.JsonWriterSettings;
 import org.json.simple.JSONObject;
 
+import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
@@ -125,20 +126,41 @@ public class MongoCrudServlet extends HttpServlet {
 
 			String id = urlComponents.length > 1 ? urlComponents[1] : null;
 
-			int limit = -1;
-			int skip = -1;
-
+			int skip = -1; 
 			String[] skipString = inMap.get("skip");
-			if (skipString != null) {
+			if (skipString != null && skipString.length > 0) {
 				skip = Integer.decode(skipString[0]);
 				inMap.remove("skip");
 			}
 
+			int limit = -1;
 			String[] limitString = inMap.get("limit");
-			if (limitString != null) {
+			if (limitString != null && limitString.length > 0) {
 				limit = Integer.decode(limitString[0]);
 				inMap.remove("limit");
 			}
+			
+			BasicDBObject orderByCriteria = null;
+			String[] orderByString = inMap.get("order_by");
+			if (orderByString != null && orderByString.length > 0) {
+				String fields [] = orderByString[0].split("[ ,;]");
+				for(String field : fields) {
+					field = field.trim();
+					boolean ascending = true;
+					if(field.length() > 0) {
+						if(field.charAt(0) == '-') {
+							ascending = false;
+							field = field.substring(0);
+						}
+						if(orderByCriteria == null) 
+							orderByCriteria = new  BasicDBObject(field, ascending ? 1 : -1);
+						else 
+							orderByCriteria.append(field, ascending ? 1 : -1); 
+					} 
+				} 
+				inMap.remove("order_by");
+			}
+			
 			Bson filter = null;
 			for (Entry<String, String[]> e : inMap.entrySet()) {
 				String field = e.getKey().trim();
@@ -179,7 +201,10 @@ public class MongoCrudServlet extends HttpServlet {
 			FindIterable<Document> find = null;
 			find = collection.find();
 			if (filter != null)
-				find.filter(filter);
+				find = find.filter(filter);
+
+			if(orderByCriteria != null)
+                find = find.sort(orderByCriteria);
 			if (limit > -1) {
 				log.info("applying limit of " + limit);
 				find.limit(limit);

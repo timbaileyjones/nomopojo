@@ -270,6 +270,36 @@ public class MongoCrudServletTest {
 	}
 
 	@Test
+	public void testGetZipsWithOrderBy() throws Exception {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+
+		when(response.getWriter()).thenReturn(pw);
+		when(request.getPathInfo()).thenReturn("/zips");
+		int limit = 50;
+		@SuppressWarnings("serial")
+		HashMap<String, String[]> parameterMap = new HashMap<String, String[]>() {
+			{
+				put("order_by", new String[] { "state, city" });
+			}
+		};
+		when(request.getParameterMap()).thenReturn(parameterMap);
+
+		new MongoCrudServlet().doGet(request, response);
+
+		String result = sw.getBuffer().toString().trim();
+		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		BasicDBList json = (BasicDBList) JSON.parse(result);
+		for(int i = 0; i < json.size() - 1; i++) {
+			BasicDBObject r1 = (BasicDBObject)json.get(i);
+			BasicDBObject r2 = (BasicDBObject)json.get(i +  1);
+			String k1 = r1.getString("state") + " " + r1.getString("city");
+			String k2 = r2.getString("state") + " " + r2.getString("city");
+			assertTrue(String.format("records %d and %d were not in the right order: %s vs %s", i, i+1, k1, k2), k1.compareTo(k2) <= 0);
+		}
+		
+	}
+	@Test
 	public void testGetZipsWithLimit() throws Exception {
 		StringWriter sw = new StringWriter();
 		PrintWriter pw = new PrintWriter(sw);
