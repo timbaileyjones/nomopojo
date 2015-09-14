@@ -23,7 +23,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.Set;
+import java.util.Random;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
@@ -48,9 +48,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.util.JSON;
 
 public class MongoCrudServletTest {
-
 	public MongoCrudServletTest() {
-
 	}
 
 	@Mock
@@ -61,18 +59,19 @@ public class MongoCrudServletTest {
 	HttpSession session;
 	@Mock
 	RequestDispatcher rd;
-	
+
 	ServletConfig servletConfig = getMockServletConfig();
 
 	private MongoClientURI uri = null;
 	private MongoClient client = null;
 	private MongoDatabase db = null;
 	private final List<BasicDBObject> zipDocuments = new ArrayList<>();
+	private final Random randomGenerator = new Random(System.currentTimeMillis());
 
 	@Before
 	public void setUp() throws Exception {
 		MockitoAnnotations.initMocks(this);
-		
+
 		// connect unit test to local mongo instance
 		uri = new MongoClientURI("mongodb://localhost:27017/nomopojo");
 		client = new MongoClient(uri);
@@ -81,8 +80,8 @@ public class MongoCrudServletTest {
 		File testdata = fetchTestData("http://media.mongodb.org/zips.json");
 		loadTestDataIntoMongo(testdata);
 	}
-	
-	private ServletConfig  getMockServletConfig() {
+
+	private ServletConfig getMockServletConfig() {
 
 		Hashtable<String, String> configMap = new Hashtable<String, String>();
 		configMap.put("host", "localhost");
@@ -96,17 +95,17 @@ public class MongoCrudServletTest {
 			public String getServletName() {
 				return "MongoCrudServlet";
 			}
-			
+
 			@Override
 			public ServletContext getServletContext() {
 				throw new UnsupportedOperationException("didn't think I needed it");
 			}
-			
+
 			@Override
 			public Enumeration<String> getInitParameterNames() {
 				return configMap.elements();
 			}
-			
+
 			@Override
 			public String getInitParameter(String name) {
 				return configMap.get(name);
@@ -178,7 +177,7 @@ public class MongoCrudServletTest {
 		return testdata;
 	}
 
-	public static ServletInputStream createServletInputStream(String str) throws Exception {
+	private static ServletInputStream createServletInputStream(String str) throws Exception {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		baos.write(str.getBytes());
 
@@ -190,6 +189,88 @@ public class MongoCrudServletTest {
 				return bais.read();
 			}
 		};
+	}
+
+	@Test
+	public void testPostNewRecordAndDelete() throws Exception {
+		String randomValue = "NO PLACE " + String.valueOf(randomGenerator.nextLong());
+		// 
+		//  do the insert
+		// 
+		{
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+
+			when(response.getWriter()).thenReturn(pw);
+			when(request.getPathInfo()).thenReturn("/zips");
+			when(request.getInputStream()).thenReturn(createServletInputStream(
+					" { _id: '00000', city:'" + randomValue + "', 'loc': [1.1, 2.2], 'pop' : 1, state:'ZZ' }"));
+
+			new MongoCrudServlet().doPost(request, response);
+
+			String result = sw.getBuffer().toString().trim();
+			System.out.println("Json Result As String is : " + result.length() + " characters long");
+			assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 4);
+
+			BasicDBObject json = (BasicDBObject) JSON.parse(result);
+			Number matched = (Number) json.get("inserted");
+			assertTrue("inserted count should be one", matched.longValue() == 1);
+		}
+
+		//
+		// now actually retrieve the record via GET to make sure it was there.
+		//
+		{
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			when(request.getPathInfo()).thenReturn("/zips/00000");
+			when(response.getWriter()).thenReturn(pw);
+			new MongoCrudServlet().doGet(request, response);
+
+			String result = sw.getBuffer().toString().trim();
+			BasicDBList list = (BasicDBList) JSON.parse(result);
+			assertTrue("list should contain just one record but has " + list.size(), list.size() == 1);
+			BasicDBObject newRecord = (BasicDBObject) list.get(0);
+			String city = (String) newRecord.get("city");
+			assertTrue("record should have a city, but doesn't: " + newRecord, city != null);
+			assertTrue("city doesn't match what we inserted. Should be " + randomValue + " but is " + city + " instead",
+					city.equals(randomValue));
+		}
+		//
+		// now that we have confirmed our insert work, do the delete
+		//
+		{
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+
+			when(response.getWriter()).thenReturn(pw);
+			when(request.getPathInfo()).thenReturn("/zips/00000");
+
+			new MongoCrudServlet().doDelete(request, response);
+
+			String result = sw.getBuffer().toString().trim();
+			System.out.println("Json Result As String is : " + result.length() + " characters long");
+			assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 4);
+
+			BasicDBObject json = (BasicDBObject) JSON.parse(result);
+			Number deleted = (Number) json.get("deleted");
+			assertTrue("inserted count should be one", deleted.longValue() == 1);
+		}
+		//
+		// now TRY to retrieve the record via GET to make sure it was deleted 
+		//
+		{
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			when(request.getPathInfo()).thenReturn("/zips/00000");
+			when(response.getWriter()).thenReturn(pw);
+			new MongoCrudServlet().doGet(request, response);
+
+			String result = sw.getBuffer().toString().trim();
+			BasicDBList list = (BasicDBList) JSON.parse(result);
+			assertTrue("list should contain NO records but has " + list.size(), list.size() == 0);
+		}
+
 	}
 
 	@Test
@@ -215,8 +296,8 @@ public class MongoCrudServletTest {
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
 		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 
-		BasicDBObject json = (BasicDBObject)JSON.parse(result);
-		Number matched = (Number)json.get("matched");
+		BasicDBObject json = (BasicDBObject) JSON.parse(result);
+		Number matched = (Number) json.get("matched");
 		assertTrue("modified count should be one", matched.longValue() == 1);
 
 	}
@@ -297,14 +378,15 @@ public class MongoCrudServletTest {
 		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		BasicDBList json = (BasicDBList) JSON.parse(result);
 		//
-		//  the limit on this loop is size-1, to avoid one-off ArrayOutOfBoundsException at the end.
+		// the limit on this loop is size-1, to avoid one-off
+		// ArrayOutOfBoundsException at the end.
 		//
-		for(int i = 0; i < json.size() - 1; i++) {
-			BasicDBObject r1 = (BasicDBObject)json.get(i);
-			BasicDBObject r2 = (BasicDBObject)json.get(i +  1);
+		for (int i = 0; i < json.size() - 1; i++) {
+			BasicDBObject r1 = (BasicDBObject) json.get(i);
+			BasicDBObject r2 = (BasicDBObject) json.get(i + 1);
 			Object[] keys = r1.toMap().keySet().toArray();
 			String keysAsString = Arrays.toString(keys);
-			
+
 			assertTrue(String.format("record %d doesn't have a city", i), keysAsString.contains("city"));
 			assertTrue(String.format("record %d doesn't have a state", i), keysAsString.contains("state"));
 			assertTrue(String.format("record %d doesn't have a _id", i), keysAsString.contains("_id"));
@@ -313,10 +395,12 @@ public class MongoCrudServletTest {
 			// check that every record's key values is "less than" the next.
 			String k1 = r1.getString("state") + " " + r1.getString("city");
 			String k2 = r2.getString("state") + " " + r2.getString("city");
-			assertTrue(String.format("records %d and %d were not in the right order: %s vs %s", i, i+1, k1, k2), k1.compareTo(k2) <= 0);
+			assertTrue(String.format("records %d and %d were not in the right order: %s vs %s", i, i + 1, k1, k2),
+					k1.compareTo(k2) <= 0);
 		}
-		
+
 	}
+
 	@Test
 	public void testGetZipsWithOrderBy() throws Exception {
 		StringWriter sw = new StringWriter();
@@ -338,15 +422,17 @@ public class MongoCrudServletTest {
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
 		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		BasicDBList json = (BasicDBList) JSON.parse(result);
-		for(int i = 0; i < json.size() - 1; i++) {
-			BasicDBObject r1 = (BasicDBObject)json.get(i);
-			BasicDBObject r2 = (BasicDBObject)json.get(i +  1);
+		for (int i = 0; i < json.size() - 1; i++) {
+			BasicDBObject r1 = (BasicDBObject) json.get(i);
+			BasicDBObject r2 = (BasicDBObject) json.get(i + 1);
 			String k1 = r1.getString("state") + " " + r1.getString("city");
 			String k2 = r2.getString("state") + " " + r2.getString("city");
-			assertTrue(String.format("records %d and %d were not in the right order: %s vs %s", i, i+1, k1, k2), k1.compareTo(k2) <= 0);
+			assertTrue(String.format("records %d and %d were not in the right order: %s vs %s", i, i + 1, k1, k2),
+					k1.compareTo(k2) <= 0);
 		}
-		
+
 	}
+
 	@Test
 	public void testGetZipsWithLimit() throws Exception {
 		StringWriter sw = new StringWriter();

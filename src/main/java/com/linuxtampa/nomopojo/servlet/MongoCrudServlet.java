@@ -33,6 +33,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 
 /**
@@ -55,10 +56,9 @@ public class MongoCrudServlet extends HttpServlet {
 	 */
 	public MongoCrudServlet() {
 		super();
-		
-		
+
 		try {
-		} catch(Exception ex) {
+		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}
 	}
@@ -99,12 +99,13 @@ public class MongoCrudServlet extends HttpServlet {
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
+	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
 
 		init(null);
 		Map<String, String[]> inMap = new HashMap<String, String[]>(req.getParameterMap());
 		String pathInfo = req.getPathInfo();
-		int statusCode = 500;
+		int statusCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 
 		System.out.println("pathInfo: " + pathInfo);
 		try {
@@ -126,7 +127,7 @@ public class MongoCrudServlet extends HttpServlet {
 
 			String id = urlComponents.length > 1 ? urlComponents[1] : null;
 
-			int skip = -1; 
+			int skip = -1;
 			String[] skipString = inMap.get("skip");
 			if (skipString != null && skipString.length > 0) {
 				skip = Integer.decode(skipString[0]);
@@ -141,41 +142,41 @@ public class MongoCrudServlet extends HttpServlet {
 			}
 			BasicDBObject projectionFields = null;
 			String[] projectionFieldsString = inMap.get("fields");
-			if(projectionFieldsString != null && projectionFieldsString .length > 0) {
-				String fields [] = projectionFieldsString[0].split("[ ,;]");
-				for(String field : fields) {
+			if (projectionFieldsString != null && projectionFieldsString.length > 0) {
+				String fields[] = projectionFieldsString[0].split("[ ,;]");
+				for (String field : fields) {
 					field = field.trim();
-					if(field.length() > 0) {
-						if(projectionFields == null) 
-							projectionFields = new  BasicDBObject(field, 1);
-						else 
-							projectionFields.append(field, 1); 
-					} 
-				} 
+					if (field.length() > 0) {
+						if (projectionFields == null)
+							projectionFields = new BasicDBObject(field, 1);
+						else
+							projectionFields.append(field, 1);
+					}
+				}
 				inMap.remove("fields");
 			}
-			
+
 			BasicDBObject orderByCriteria = null;
 			String[] orderByString = inMap.get("order_by");
 			if (orderByString != null && orderByString.length > 0) {
-				String fields [] = orderByString[0].split("[ ,;]");
-				for(String field : fields) {
+				String fields[] = orderByString[0].split("[ ,;]");
+				for (String field : fields) {
 					field = field.trim();
 					boolean ascending = true;
-					if(field.length() > 0) {
-						if(field.charAt(0) == '-') {
+					if (field.length() > 0) {
+						if (field.charAt(0) == '-') {
 							ascending = false;
 							field = field.substring(0);
 						}
-						if(orderByCriteria == null) 
-							orderByCriteria = new  BasicDBObject(field, ascending ? 1 : -1);
-						else 
-							orderByCriteria.append(field, ascending ? 1 : -1); 
-					} 
-				} 
+						if (orderByCriteria == null)
+							orderByCriteria = new BasicDBObject(field, ascending ? 1 : -1);
+						else
+							orderByCriteria.append(field, ascending ? 1 : -1);
+					}
+				}
 				inMap.remove("order_by");
 			}
-			
+
 			Bson filter = null;
 			for (Entry<String, String[]> e : inMap.entrySet()) {
 				String field = e.getKey().trim();
@@ -217,10 +218,10 @@ public class MongoCrudServlet extends HttpServlet {
 			find = collection.find();
 			if (filter != null)
 				find = find.filter(filter);
-			if(projectionFields != null)
-				find = find.projection(projectionFields); 
-			if(orderByCriteria != null)
-                find = find.sort(orderByCriteria);
+			if (projectionFields != null)
+				find = find.projection(projectionFields);
+			if (orderByCriteria != null)
+				find = find.sort(orderByCriteria);
 			if (limit > -1) {
 				log.info("applying limit of " + limit);
 				find.limit(limit);
@@ -244,7 +245,7 @@ public class MongoCrudServlet extends HttpServlet {
 						w.write(',');
 				}
 				w.write(']');
-				response.setStatus(200);
+				response.setStatus(HttpServletResponse.SC_OK);
 			} finally {
 				cursor.close();
 			}
@@ -253,8 +254,8 @@ public class MongoCrudServlet extends HttpServlet {
 			ex.printStackTrace(response.getWriter());
 			// we only want to see server errors (500+). Bad Requests are
 			// 400-499 and are not this servlet's fault
-			if (statusCode >= 500) {
-				System.err.println("Returned Server ERROR " + 500);
+			if (statusCode >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+				System.err.println("Returned Server ERROR " + statusCode);
 				ex.printStackTrace(System.err);
 			}
 			throw new ServletException("caught " + ex, ex);
@@ -265,9 +266,55 @@ public class MongoCrudServlet extends HttpServlet {
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
-	public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		// TODO implement ADD function
+	@SuppressWarnings("unchecked")
+	@Override
+	public void doPost(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
 		init(null);
+		String pathInfo = req.getPathInfo();
+		int statusCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+
+		System.out.println("pathInfo: " + pathInfo);
+		try {
+			response.setHeader("Content-type", "application/json");
+			if (pathInfo == null)
+				throw new ServletException(
+						"PathInfo requires exactly one path component after " + req.getServletPath());
+
+			while (pathInfo.startsWith("/"))
+				pathInfo = pathInfo.substring(1);
+
+			String urlComponents[] = pathInfo.split("[/\\?]");
+			System.out.println("urlComponents: " + Arrays.toString(urlComponents));
+			String collectionName = urlComponents[0];
+
+			BufferedReader br = new BufferedReader(new InputStreamReader(req.getInputStream()));
+			StringBuilder sb = new StringBuilder();
+			String line = null;
+			while ((line = br.readLine()) != null)
+				sb.append(line);
+
+			Document newDocument = Document.parse(sb.toString());
+
+			MongoCollection<Document> collection = db.getCollection(collectionName);
+
+			collection.insertOne(newDocument);
+
+			JSONObject jsonResponse = new JSONObject();
+			jsonResponse.put("inserted", new Integer(1));
+
+			response.getWriter().write(jsonResponse.toJSONString());
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (Exception ex) {
+			response.setStatus(statusCode);
+			ex.printStackTrace(response.getWriter());
+			// we only want to see server errors (500+). Bad Requests are
+			// 400-499 and are not this servlet's fault
+			if (statusCode >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+				System.err.println("Returned Server ERROR " + statusCode);
+				ex.printStackTrace(System.err);
+			}
+			throw new ServletException("caught " + ex, ex);
+		}
 
 	}
 
@@ -276,10 +323,11 @@ public class MongoCrudServlet extends HttpServlet {
 	 *      response)
 	 */
 	@SuppressWarnings("unchecked")
+	@Override
 	public void doPut(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
 		init(null);
 		String pathInfo = req.getPathInfo();
-		int statusCode = 500;
+		int statusCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 
 		System.out.println("pathInfo: " + pathInfo);
 		try {
@@ -317,17 +365,66 @@ public class MongoCrudServlet extends HttpServlet {
 			jsonResponse.put("upsertedId", result.getUpsertedId());
 
 			response.getWriter().write(jsonResponse.toJSONString());
-			response.setStatus(200);
+			response.setStatus(HttpServletResponse.SC_OK);
 		} catch (Exception ex) {
 			response.setStatus(statusCode);
 			ex.printStackTrace(response.getWriter());
 			// we only want to see server errors (500+). Bad Requests are
 			// 400-499 and are not this servlet's fault
-			if (statusCode >= 500) {
-				System.err.println("Returned Server ERROR " + 500);
+			if (statusCode >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+				System.err.println("Returned Server ERROR " + statusCode);
 				ex.printStackTrace(System.err);
 			}
 			throw new ServletException("caught " + ex, ex);
 		}
+	}
+	@SuppressWarnings("unchecked")
+	@Override
+	public void doDelete(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
+		init(null);
+		String pathInfo = req.getPathInfo();
+		int statusCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+
+		System.out.println("pathInfo: " + pathInfo);
+		try {
+			response.setHeader("Content-type", "application/json");
+			if (pathInfo == null || pathInfo.length() < 2)
+				throw new ServletException(
+						"PathInfo requires at least two path components after " + req.getServletPath());
+
+			while (pathInfo.startsWith("/"))
+				pathInfo = pathInfo.substring(1);
+
+			String urlComponents[] = pathInfo.split("[/\\?]");
+			System.out.println("urlComponents: " + Arrays.toString(urlComponents));
+			if (urlComponents.length < 1)
+				throw new ServletException(
+						"PathInfo requires at least two path components after " + req.getServletPath());
+			String collectionName = urlComponents[0];
+
+			String id = urlComponents[1];
+			MongoCollection<Document> collection = db.getCollection(collectionName);
+
+			DeleteResult result = collection.deleteOne(Filters.eq("_id", id));
+
+			JSONObject jsonResponse = new JSONObject();
+			jsonResponse.put("deleted", result.getDeletedCount());
+
+			response.getWriter().write(jsonResponse.toJSONString());
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (Exception ex) {
+			response.setStatus(statusCode);
+			ex.printStackTrace(response.getWriter());
+			// we only want to see server errors (500+). Bad Requests are
+			// 400-499 and are not this servlet's fault
+			if (statusCode >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+				System.err.println("Returned Server ERROR " + statusCode);
+				ex.printStackTrace(System.err);
+			}
+			throw new ServletException("caught " + ex, ex);
+		}
+		
+		
+		
 	}
 }
