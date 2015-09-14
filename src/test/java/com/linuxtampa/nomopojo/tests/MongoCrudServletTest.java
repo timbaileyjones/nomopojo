@@ -18,10 +18,12 @@ import java.io.StringWriter;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
@@ -211,6 +213,7 @@ public class MongoCrudServletTest {
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 
 		BasicDBObject json = (BasicDBObject)JSON.parse(result);
 		Number matched = (Number)json.get("matched");
@@ -241,6 +244,7 @@ public class MongoCrudServletTest {
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
 
 		BasicDBList json = (BasicDBList) JSON.parse(result);
@@ -257,8 +261,9 @@ public class MongoCrudServletTest {
 		new MongoCrudServlet().doGet(request, response);
 
 		String result2 = sw.getBuffer().toString().trim();
-		System.out.println("Json Result As String is : " + result.length() + " characters long");
-		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
+		System.out.println("Json Result As String is : " + result2.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result2, result.length() > 20);
+		System.out.println("first few lines of Json Result:\n" + result2.substring(0, 400));
 
 		BasicDBList json2 = (BasicDBList) JSON.parse(result2);
 		assertTrue(String.format("should have gotten %d records, got %d instead", limit, json2.size()),
@@ -270,13 +275,55 @@ public class MongoCrudServletTest {
 	}
 
 	@Test
+	public void testGetZipsWithOrderByAndProjections() throws Exception {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+
+		when(response.getWriter()).thenReturn(pw);
+		when(request.getPathInfo()).thenReturn("/zips");
+		@SuppressWarnings("serial")
+		HashMap<String, String[]> parameterMap = new HashMap<String, String[]>() {
+			{
+				put("fields", new String[] { "state, city" });
+				put("order_by", new String[] { "state, city" });
+			}
+		};
+		when(request.getParameterMap()).thenReturn(parameterMap);
+
+		new MongoCrudServlet().doGet(request, response);
+
+		String result = sw.getBuffer().toString().trim();
+		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
+		BasicDBList json = (BasicDBList) JSON.parse(result);
+		//
+		//  the limit on this loop is size-1, to avoid one-off ArrayOutOfBoundsException at the end.
+		//
+		for(int i = 0; i < json.size() - 1; i++) {
+			BasicDBObject r1 = (BasicDBObject)json.get(i);
+			BasicDBObject r2 = (BasicDBObject)json.get(i +  1);
+			Object[] keys = r1.toMap().keySet().toArray();
+			String keysAsString = Arrays.toString(keys);
+			
+			assertTrue(String.format("record %d doesn't have a city", i), keysAsString.contains("city"));
+			assertTrue(String.format("record %d doesn't have a state", i), keysAsString.contains("state"));
+			assertTrue(String.format("record %d doesn't have a _id", i), keysAsString.contains("_id"));
+			assertTrue(String.format("record %d has more than just _id, city and state", i), keys.length == 3);
+
+			// check that every record's key values is "less than" the next.
+			String k1 = r1.getString("state") + " " + r1.getString("city");
+			String k2 = r2.getString("state") + " " + r2.getString("city");
+			assertTrue(String.format("records %d and %d were not in the right order: %s vs %s", i, i+1, k1, k2), k1.compareTo(k2) <= 0);
+		}
+		
+	}
+	@Test
 	public void testGetZipsWithOrderBy() throws Exception {
 		StringWriter sw = new StringWriter();
 		PrintWriter pw = new PrintWriter(sw);
 
 		when(response.getWriter()).thenReturn(pw);
 		when(request.getPathInfo()).thenReturn("/zips");
-		int limit = 50;
 		@SuppressWarnings("serial")
 		HashMap<String, String[]> parameterMap = new HashMap<String, String[]>() {
 			{
@@ -289,6 +336,7 @@ public class MongoCrudServletTest {
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		BasicDBList json = (BasicDBList) JSON.parse(result);
 		for(int i = 0; i < json.size() - 1; i++) {
 			BasicDBObject r1 = (BasicDBObject)json.get(i);
@@ -319,6 +367,7 @@ public class MongoCrudServletTest {
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
 
 		BasicDBList json = (BasicDBList) JSON.parse(result);
@@ -359,6 +408,7 @@ public class MongoCrudServletTest {
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
 
 		BasicDBList json = (BasicDBList) JSON.parse(result);
@@ -390,6 +440,7 @@ public class MongoCrudServletTest {
 
 		String result = sw.getBuffer().toString().trim();
 		System.out.println("Json Result As String is : " + result.length() + " characters long");
+		assertTrue("somehow got a very small JSON resposne: " + result, result.length() > 20);
 		System.out.println("first few lines of Json Result:\n" + result.substring(0, 400));
 
 		BasicDBList json = (BasicDBList) JSON.parse(result);

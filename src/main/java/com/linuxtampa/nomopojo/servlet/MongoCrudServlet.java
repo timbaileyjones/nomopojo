@@ -139,6 +139,21 @@ public class MongoCrudServlet extends HttpServlet {
 				limit = Integer.decode(limitString[0]);
 				inMap.remove("limit");
 			}
+			BasicDBObject projectionFields = null;
+			String[] projectionFieldsString = inMap.get("fields");
+			if(projectionFieldsString != null && projectionFieldsString .length > 0) {
+				String fields [] = projectionFieldsString[0].split("[ ,;]");
+				for(String field : fields) {
+					field = field.trim();
+					if(field.length() > 0) {
+						if(projectionFields == null) 
+							projectionFields = new  BasicDBObject(field, 1);
+						else 
+							projectionFields.append(field, 1); 
+					} 
+				} 
+				inMap.remove("fields");
+			}
 			
 			BasicDBObject orderByCriteria = null;
 			String[] orderByString = inMap.get("order_by");
@@ -202,7 +217,8 @@ public class MongoCrudServlet extends HttpServlet {
 			find = collection.find();
 			if (filter != null)
 				find = find.filter(filter);
-
+			if(projectionFields != null)
+				find = find.projection(projectionFields); 
 			if(orderByCriteria != null)
                 find = find.sort(orderByCriteria);
 			if (limit > -1) {
