@@ -194,17 +194,18 @@ public class MongoCrudServletTest {
 	@Test
 	public void testPostNewRecordAndDelete() throws Exception {
 		String randomValue = "NO PLACE " + String.valueOf(randomGenerator.nextLong());
-		// 
-		//  do the insert
-		// 
+		String id = "55f9cc6b957eed97f897d01d";
+		//
+		// do the insert
+		//
 		{
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
 
 			when(response.getWriter()).thenReturn(pw);
 			when(request.getPathInfo()).thenReturn("/zips");
-			when(request.getInputStream()).thenReturn(createServletInputStream(
-					" { _id: '00000', city:'" + randomValue + "', 'loc': [1.1, 2.2], 'pop' : 1, state:'ZZ' }"));
+			when(request.getInputStream()).thenReturn(createServletInputStream(" { _id: { $oid : '" + id
+					+ "' } , city:'" + randomValue + "', 'loc': [1.1, 2.2], 'pop' : 1, state:'ZZ' }"));
 
 			new MongoCrudServlet().doPost(request, response);
 
@@ -223,7 +224,7 @@ public class MongoCrudServletTest {
 		{
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
-			when(request.getPathInfo()).thenReturn("/zips/00000");
+			when(request.getPathInfo()).thenReturn("/zips/" + id);
 			when(response.getWriter()).thenReturn(pw);
 			new MongoCrudServlet().doGet(request, response);
 
@@ -244,7 +245,7 @@ public class MongoCrudServletTest {
 			PrintWriter pw = new PrintWriter(sw);
 
 			when(response.getWriter()).thenReturn(pw);
-			when(request.getPathInfo()).thenReturn("/zips/00000");
+			when(request.getPathInfo()).thenReturn("/zips/" + id);
 
 			new MongoCrudServlet().doDelete(request, response);
 
@@ -254,15 +255,15 @@ public class MongoCrudServletTest {
 
 			BasicDBObject json = (BasicDBObject) JSON.parse(result);
 			Number deleted = (Number) json.get("deleted");
-			assertTrue("inserted count should be one", deleted.longValue() == 1);
+			assertTrue("deleted count should be one", deleted.longValue() == 1);
 		}
 		//
-		// now TRY to retrieve the record via GET to make sure it was deleted 
+		// now TRY to retrieve the record via GET to make sure it was deleted
 		//
 		{
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
-			when(request.getPathInfo()).thenReturn("/zips/00000");
+			when(request.getPathInfo()).thenReturn("/zips/" + id);
 			when(response.getWriter()).thenReturn(pw);
 			new MongoCrudServlet().doGet(request, response);
 

@@ -22,6 +22,7 @@ import org.apache.log4j.Logger;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.json.JsonWriterSettings;
+import org.bson.types.ObjectId;
 import org.json.simple.JSONObject;
 
 import com.mongodb.BasicDBObject;
@@ -208,7 +209,7 @@ public class MongoCrudServlet extends HttpServlet {
 				filter = (filter == null) ? f : Filters.and(filter, f);
 			}
 			if (id != null) {
-				Bson idFilter = Filters.eq("_id", id);
+				Bson idFilter = makeIDfilter(id); 
 				filter = (filter == null) ? Filters.and(idFilter) : Filters.and(filter, idFilter);
 			}
 
@@ -260,6 +261,18 @@ public class MongoCrudServlet extends HttpServlet {
 			}
 			throw new ServletException("caught " + ex, ex);
 		}
+	}
+
+	static private Bson makeIDfilter(String id) {
+		ObjectId oid = null;
+		Bson idFilter = null;
+		try {
+			oid = new ObjectId(id);
+			idFilter = Filters.eq("_id", oid);
+		} catch (IllegalArgumentException ignored) {
+			idFilter = Filters.eq("_id", id);
+		}
+		return idFilter;
 	}
 
 	/**
@@ -356,8 +369,9 @@ public class MongoCrudServlet extends HttpServlet {
 			Document fieldsToUpdate = Document.parse(sb.toString());
 
 			MongoCollection<Document> collection = db.getCollection(collectionName);
+			Bson idFilter = makeIDfilter(id); 
 
-			UpdateResult result = collection.updateOne(Filters.eq("_id", id), new Document("$set", fieldsToUpdate));
+			UpdateResult result = collection.updateOne(idFilter, new Document("$set", fieldsToUpdate));
 
 			JSONObject jsonResponse = new JSONObject();
 			jsonResponse.put("matched", result.getMatchedCount());
@@ -378,6 +392,7 @@ public class MongoCrudServlet extends HttpServlet {
 			throw new ServletException("caught " + ex, ex);
 		}
 	}
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public void doDelete(HttpServletRequest req, HttpServletResponse response) throws ServletException, IOException {
@@ -405,7 +420,8 @@ public class MongoCrudServlet extends HttpServlet {
 			String id = urlComponents[1];
 			MongoCollection<Document> collection = db.getCollection(collectionName);
 
-			DeleteResult result = collection.deleteOne(Filters.eq("_id", id));
+			Bson idFilter = makeIDfilter(id); 
+			DeleteResult result = collection.deleteOne(idFilter);
 
 			JSONObject jsonResponse = new JSONObject();
 			jsonResponse.put("deleted", result.getDeletedCount());
@@ -423,8 +439,6 @@ public class MongoCrudServlet extends HttpServlet {
 			}
 			throw new ServletException("caught " + ex, ex);
 		}
-		
-		
-		
+
 	}
 }
