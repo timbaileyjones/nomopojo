@@ -158,7 +158,7 @@ public class MongoCrudServlet extends HttpServlet {
 			}
 
 			BasicDBObject orderByCriteria = null;
-			String[] orderByString = inMap.get("order_by");
+			String[] orderByString = inMap.get("order-by");
 			if (orderByString != null && orderByString.length > 0) {
 				String fields[] = orderByString[0].split("[ ,;]");
 				for (String field : fields) {
@@ -175,7 +175,7 @@ public class MongoCrudServlet extends HttpServlet {
 							orderByCriteria.append(field, ascending ? 1 : -1);
 					}
 				}
-				inMap.remove("order_by");
+				inMap.remove("order-by");
 			}
 
 			Bson filter = null;

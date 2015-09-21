@@ -367,7 +367,7 @@ public class MongoCrudServletTest {
 		HashMap<String, String[]> parameterMap = new HashMap<String, String[]>() {
 			{
 				put("fields", new String[] { "state, city" });
-				put("order_by", new String[] { "state, city" });
+				put("order-by", new String[] { "state, city" });
 			}
 		};
 		when(request.getParameterMap()).thenReturn(parameterMap);
@@ -412,7 +412,7 @@ public class MongoCrudServletTest {
 		@SuppressWarnings("serial")
 		HashMap<String, String[]> parameterMap = new HashMap<String, String[]>() {
 			{
-				put("order_by", new String[] { "state, city" });
+				put("order-by", new String[] { "state, city" });
 			}
 		};
 		when(request.getParameterMap()).thenReturn(parameterMap);
